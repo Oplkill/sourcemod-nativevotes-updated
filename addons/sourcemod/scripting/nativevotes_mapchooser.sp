@@ -33,10 +33,14 @@
  *
  * Version: $Id$
  */
- 
-#include <sourcemod>
+
+#define SOUND_VOTESTART "stamm/votestart.mp3"
+#define SOUND_VOTEEND   "stamm/voteend.mp3"
 #include <mapchooser>
 #include <nextmap>
+#include <sdktools>
+#include <sdktools_sound>
+#include <sourcemod>
 
 #undef REQUIRE_PLUGIN
 #include <nativevotes>
@@ -79,7 +83,11 @@ ConVar g_Cvar_VoteDuration;
 ConVar g_Cvar_RunOff;
 ConVar g_Cvar_RunOffPercent;
 
-Handle g_VoteTimer = null;
+Handle g_CvarSoundName = null;
+char   g_soundName[PLATFORM_MAX_PATH];
+Handle g_CvarSoundName2 = null;
+char   g_soundName2[PLATFORM_MAX_PATH];
+Handle g_VoteTimer  = null;
 Handle g_RetryTimer = null;
 
 // g_MapList stores unresolved names so we can resolve them after every map change in the workshop updates.
@@ -130,7 +138,9 @@ public void OnPluginStart()
 	g_OldMapList = new ArrayList(arraySize);
 	g_NextMapList = new ArrayList(arraySize);
 	CreateConVar("nativevotes_mapchooser_version", VERSION, "NativeVotes MapChooser version", FCVAR_DONTRECORD|FCVAR_NOTIFY|FCVAR_SPONLY);
-	
+	g_CvarSoundName  = CreateConVar("sm_vote_sound", "misc/vote.mp3", "The sound to play");
+	g_CvarSoundName2 = CreateConVar("sm_endvote_sound", "misc/endvote.mp3", "The sound to play");
+
 	g_Cvar_EndOfMapVote = CreateConVar("sm_mapvote_endvote", "1", "Specifies if MapChooser should run an end of map vote", _, true, 0.0, true, 1.0);
 
 	g_Cvar_StartTime = CreateConVar("sm_mapvote_start", "3.0", "Specifies when to start the vote based on time remaining.", _, true, 1.0);
@@ -290,6 +300,18 @@ public void OnConfigsExecuted()
 			LogMessage("Warning - Bonus Round Time shorter than Vote Time. Votes during bonus round may not have time to complete");
 		}
 	}
+
+	GetConVarString(g_CvarSoundName, g_soundName, PLATFORM_MAX_PATH);
+	char buffer[PLATFORM_MAX_PATH];
+	PrecacheSound(g_soundName, true);
+	Format(buffer, sizeof(buffer), "sound/%s", g_soundName);
+	AddFileToDownloadsTable(buffer);
+
+	GetConVarString(g_CvarSoundName2, g_soundName2, PLATFORM_MAX_PATH);
+	char buffer2[PLATFORM_MAX_PATH];
+	PrecacheSound(g_soundName2, true);
+	Format(buffer2, sizeof(buffer2), "sound/%s", g_soundName2);
+	AddFileToDownloadsTable(buffer2);
 }
 
 public void OnMapEnd()
@@ -641,6 +663,30 @@ void InitiateVote(MapChange when, ArrayList inputlist=null)
 	 
 	char map[PLATFORM_MAX_PATH];
 	
+	/* Do we add any special items? */
+	if ((when == MapChange_Instant || when == MapChange_RoundEnd) && g_Cvar_DontChange.BoolValue)
+	{
+		if (g_NativeVotes)
+		{
+			g_VoteNative.AddItem(VOTE_DONTCHANGE, "Don't Change");
+		}
+		else
+		{
+			g_VoteMenu.AddItem(VOTE_DONTCHANGE, "Don't Change");
+		}
+	}
+	else if (g_Cvar_Extend.BoolValue && g_Extends < g_Cvar_Extend.IntValue)
+	{
+		if (g_NativeVotes)
+		{
+			g_VoteNative.AddItem(VOTE_EXTEND, "Extend Map");
+		}
+		else
+		{
+			g_VoteMenu.AddItem(VOTE_EXTEND, "Extend Map");
+		}
+	}
+	
 	/* No input given - User our internal nominations and maplist */
 	if (inputlist == null)
 	{
@@ -760,30 +806,6 @@ void InitiateVote(MapChange when, ArrayList inputlist=null)
 		}
 	}
 	
-	/* Do we add any special items? */
-	if ((when == MapChange_Instant || when == MapChange_RoundEnd) && g_Cvar_DontChange.BoolValue)
-	{
-		if (g_NativeVotes)
-		{
-			g_VoteNative.AddItem(VOTE_DONTCHANGE, "Don't Change");
-		}
-		else
-		{
-			g_VoteMenu.AddItem(VOTE_DONTCHANGE, "Don't Change");
-		}
-	}
-	else if (g_Cvar_Extend.BoolValue && g_Extends < g_Cvar_Extend.IntValue)
-	{
-		if (g_NativeVotes)
-		{
-			g_VoteNative.AddItem(VOTE_EXTEND, "Extend Map");
-		}
-		else
-		{
-			g_VoteMenu.AddItem(VOTE_EXTEND, "Extend Map");
-		}
-	}
-	
 	/* There are no maps we could vote for. Don't show anything. */
 	if (g_NativeVotes && g_VoteNative.ItemCount == 0)
 	{
@@ -814,6 +836,7 @@ void InitiateVote(MapChange when, ArrayList inputlist=null)
 
 	LogAction(-1, -1, "Voting for next map has started.");
 	PrintToChatAll("[SM] %t", "Nextmap Voting Started");
+	EmitSoundToAll(g_soundName);
 }
 
 public void Handler_NV_VoteFinishedGeneric(NativeVote menu,
@@ -957,6 +980,7 @@ public void Handler_VoteFinishedGenericShared(const char[] map,
 		
 		PrintToChatAll("[SM] %t", "Nextmap Voting Finished", displayName, RoundToFloor(float(item_info[0][VOTEINFO_ITEM_VOTES])/float(num_votes)*100), num_votes);
 		LogAction(-1, -1, "Voting for next map has finished. Nextmap: %s.", map);
+		EmitSoundToAll(g_soundName2);
 	}	
 }
 
