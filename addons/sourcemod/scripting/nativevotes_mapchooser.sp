@@ -34,8 +34,6 @@
  * Version: $Id$
  */
 
-#define SOUND_VOTESTART "stamm/votestart.mp3"
-#define SOUND_VOTEEND   "stamm/voteend.mp3"
 #include <mapchooser>
 #include <nextmap>
 #include <sdktools>
@@ -83,10 +81,12 @@ ConVar g_Cvar_VoteDuration;
 ConVar g_Cvar_RunOff;
 ConVar g_Cvar_RunOffPercent;
 
-Handle g_CvarSoundName = null;
-char   g_soundName[PLATFORM_MAX_PATH];
-Handle g_CvarSoundName2 = null;
-char   g_soundName2[PLATFORM_MAX_PATH];
+/* Vote sounds */
+ConVar g_Cvar_SoundVoteStart = null;
+ConVar g_Cvar_SoundVoteEnd = null;
+char   g_SoundVoteStartPath[PLATFORM_MAX_PATH];
+char   g_SoundVoteEndPath[PLATFORM_MAX_PATH];
+
 Handle g_VoteTimer  = null;
 Handle g_RetryTimer = null;
 
@@ -138,8 +138,8 @@ public void OnPluginStart()
 	g_OldMapList = new ArrayList(arraySize);
 	g_NextMapList = new ArrayList(arraySize);
 	CreateConVar("nativevotes_mapchooser_version", VERSION, "NativeVotes MapChooser version", FCVAR_DONTRECORD|FCVAR_NOTIFY|FCVAR_SPONLY);
-	g_CvarSoundName  = CreateConVar("sm_vote_sound", "misc/vote.mp3", "The sound to play");
-	g_CvarSoundName2 = CreateConVar("sm_endvote_sound", "misc/endvote.mp3", "The sound to play");
+	g_Cvar_SoundVoteStart  = CreateConVar("sm_vote_sound", "misc/vote.mp3", "The sound to play when vote start");
+	g_Cvar_SoundVoteEnd = CreateConVar("sm_endvote_sound", "misc/endvote.mp3", "The sound to play when vote ends");
 
 	g_Cvar_EndOfMapVote = CreateConVar("sm_mapvote_endvote", "1", "Specifies if MapChooser should run an end of map vote", _, true, 0.0, true, 1.0);
 
@@ -301,16 +301,16 @@ public void OnConfigsExecuted()
 		}
 	}
 
-	GetConVarString(g_CvarSoundName, g_soundName, PLATFORM_MAX_PATH);
+	GetConVarString(g_Cvar_SoundVoteStart, g_SoundVoteStartPath, PLATFORM_MAX_PATH);
 	char buffer[PLATFORM_MAX_PATH];
-	PrecacheSound(g_soundName, true);
-	Format(buffer, sizeof(buffer), "sound/%s", g_soundName);
+	PrecacheSound(g_SoundVoteStartPath, true);
+	Format(buffer, sizeof(buffer), "sound/%s", g_SoundVoteStartPath);
 	AddFileToDownloadsTable(buffer);
 
-	GetConVarString(g_CvarSoundName2, g_soundName2, PLATFORM_MAX_PATH);
+	GetConVarString(g_Cvar_SoundVoteEnd, g_SoundVoteEndPath, PLATFORM_MAX_PATH);
 	char buffer2[PLATFORM_MAX_PATH];
-	PrecacheSound(g_soundName2, true);
-	Format(buffer2, sizeof(buffer2), "sound/%s", g_soundName2);
+	PrecacheSound(g_SoundVoteEndPath, true);
+	Format(buffer2, sizeof(buffer2), "sound/%s", g_SoundVoteEndPath);
 	AddFileToDownloadsTable(buffer2);
 }
 
@@ -836,7 +836,7 @@ void InitiateVote(MapChange when, ArrayList inputlist=null)
 
 	LogAction(-1, -1, "Voting for next map has started.");
 	PrintToChatAll("[SM] %t", "Nextmap Voting Started");
-	EmitSoundToAll(g_soundName);
+	EmitSoundToAll(g_SoundVoteStartPath);
 }
 
 public void Handler_NV_VoteFinishedGeneric(NativeVote menu,
@@ -980,7 +980,7 @@ public void Handler_VoteFinishedGenericShared(const char[] map,
 		
 		PrintToChatAll("[SM] %t", "Nextmap Voting Finished", displayName, RoundToFloor(float(item_info[0][VOTEINFO_ITEM_VOTES])/float(num_votes)*100), num_votes);
 		LogAction(-1, -1, "Voting for next map has finished. Nextmap: %s.", map);
-		EmitSoundToAll(g_soundName2);
+		EmitSoundToAll(g_SoundVoteEndPath);
 	}	
 }
 
